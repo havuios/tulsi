@@ -365,8 +365,8 @@ class _OptionsParser(object):
     app_dir = developer_dir.split('.app')[0] + '.app'
     version_plist_path = os.path.join(app_dir, 'Contents', 'version.plist')
     try:
-      # python2 API to plistlib - needs updating if/when Tulsi bumps to python3
-      plist = plistlib.readPlist(version_plist_path)
+      with open(version_plist_path, 'rb') as f:
+        plist = plistlib.load(f)
     except IOError:
       _PrintXcodeWarning('Tulsi cannot determine Xcode version, error '
                          'reading from {}'.format(version_plist_path))

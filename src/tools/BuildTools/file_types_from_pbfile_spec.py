@@ -30,8 +30,8 @@ def _ParseFile(filename):
       'plutil', '-convert', 'xml1', '-o', '-', filename
   ])
   result = dict()
-  entry_list = plistlib.readPlistFromString(xml_content)
-  assert type(entry_list) is list
+  entry_list = plistlib.loads(xml_content)
+  assert isinstance(entry_list, list)
   for entry in entry_list:
     identifier = entry.get('Identifier')
     extensions = entry.get('Extensions')
