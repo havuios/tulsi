@@ -100,7 +100,7 @@ def main():
                            args.release, args.config, args.xcode_version,
                            args.swift)
   if args.print_cmd:
-    print _QuoteCommandForShell(command)
+    print(_QuoteCommandForShell(command))
 
   if args.run:
     return _InterruptSafeCall(command)
