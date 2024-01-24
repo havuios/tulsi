@@ -214,6 +214,7 @@ final class BazelAspectInfoExtractor: QueuedLogging {
         "--noshow_loading_progress",  // Don't show Bazel's loading progress.
         "--noshow_progress",  // Don't show Bazel's build progress.
         "--symlink_prefix=/",  // Generate artifacts without overwriting the normal build symlinks.
+        "--swiftcopt=-suppress-warnings",  // Generate artifacts without overwriting the normal build symlinks.
     ])
     arguments.append(contentsOf: buildOptions)
     arguments.append(contentsOf: config.bazelFlags)
@@ -231,16 +232,12 @@ final class BazelAspectInfoExtractor: QueuedLogging {
         "--features=-parse_headers",
         // Don't run validation actions during project generation; validation actions could
         // slow down the project generation or fail it.
-        // TODO: Switch to --norun_validations when we no longer need to support Bazel 4.
-        "--noexperimental_run_validations",
+        "--experimental_run_validations=0",
         // The following flags WILL affect Bazel analysis caching.
         // Keep this consistent with bazel_build.py.
         "--aspects",
         "@tulsi//:tulsi/tulsi_aspects.bzl%\(aspect)",
-        // Build only the aspect artifacts. We explicitly disable the
-        // rules_apple `dsyms` output group since it may trigger a full build
-        // and we've seen some folks enabling it in their rc file.
-        "--output_groups=tulsi_info,-dsyms",
+        "--output_groups=tulsi_info,-_,-default",  // Build only the aspect artifacts.
     ])
     arguments.append(contentsOf: targets)
 

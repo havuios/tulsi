@@ -17,7 +17,7 @@ import Foundation
 let XcodeProjectArchiveVersion = "1"
 
 
-protocol PBXProjSerializable: AnyObject {
+protocol PBXProjSerializable: class {
   func serializeInto(_ serializer: PBXProjFieldSerializer) throws
 }
 

@@ -41,18 +41,15 @@ class XcodeProjectGeneratorTests: XCTestCase {
   let resourceURLs = XcodeProjectGenerator.ResourceSourcePathURLs(
     buildScript: URL(fileURLWithPath: "/scripts/Build"),
     cleanScript: URL(fileURLWithPath: "/scripts/Clean"),
+    swiftlintScript: URL(fileURLWithPath: "/scripts/SwiftLint"),
+    pMD_CPDScript: URL(fileURLWithPath: "/scripts/PMD_CPDScript"),
     extraBuildScripts: [URL(fileURLWithPath: "/scripts/Logging")],
-    iOSUIRunnerEntitlements: URL(
-      fileURLWithPath: "/generatedProjectResources/iOSXCTRunner.entitlements"),
-    macOSUIRunnerEntitlements: URL(
-      fileURLWithPath: "/generatedProjectResources/macOSXCTRunner.entitlements"),
+    iOSUIRunnerEntitlements: URL(fileURLWithPath: "/generatedProjectResources/iOSXCTRunner.entitlements"),
+    macOSUIRunnerEntitlements: URL(fileURLWithPath: "/generatedProjectResources/macOSXCTRunner.entitlements"),
     stubInfoPlist: URL(fileURLWithPath: "/generatedProjectResources/StubInfoPlist.plist"),
-    stubIOSAppExInfoPlistTemplate: URL(
-      fileURLWithPath: "/generatedProjectResources/stubIOSAppExInfoPlist.plist"),
-    stubWatchOS2InfoPlist: URL(
-      fileURLWithPath: "/generatedProjectResources/StubWatchOS2InfoPlist.plist"),
-    stubWatchOS2AppExInfoPlist: URL(
-      fileURLWithPath: "/generatedProjectResources/StubWatchOS2AppExInfoPlist.plist"),
+    stubIOSAppExInfoPlistTemplate: URL(fileURLWithPath: "/generatedProjectResources/stubIOSAppExInfoPlist.plist"),
+    stubWatchOS2InfoPlist: URL(fileURLWithPath: "/generatedProjectResources/StubWatchOS2InfoPlist.plist"),
+    stubWatchOS2AppExInfoPlist: URL(fileURLWithPath: "/generatedProjectResources/StubWatchOS2AppExInfoPlist.plist"),
     bazelWorkspaceFile: URL(fileURLWithPath: "/WORKSPACE"),
     tulsiPackageFiles: [URL(fileURLWithPath: "/tulsi/tulsi_aspects.bzl")])
 
@@ -102,7 +99,7 @@ class XcodeProjectGeneratorTests: XCTestCase {
       let cacheReaderURL = supportScriptsURL.appendingPathComponent(
         "bazel_cache_reader",
         isDirectory: false)
-      XCTAssertFalse(mockFileManager.copyOperations.keys.contains(cacheReaderURL.path))
+      XCTAssert(mockFileManager.copyOperations.keys.contains(cacheReaderURL.path))
 
       let xcp = "\(xcodeProjectPath)/xcuserdata/USER.xcuserdatad/xcschemes/xcschememanagement.plist"
       XCTAssert(!mockFileManager.attributesMap.isEmpty)
@@ -110,24 +107,6 @@ class XcodeProjectGeneratorTests: XCTestCase {
         XCTAssertNotNil(attrs[.modificationDate])
       }
       XCTAssert(mockFileManager.writeOperations.keys.contains(xcp))
-    } catch let e {
-      XCTFail("Unexpected exception \(e)")
-    }
-  }
-
-  func testSuccessfulGenerationWithBazelCacheReader() {
-    let ruleEntries = XcodeProjectGeneratorTests.labelToRuleEntryMapForLabels(buildTargetLabels)
-    let options = TulsiOptionSet()
-    options[.UseBazelCacheReader].projectValue = "YES"
-    prepareGenerator(ruleEntries, options: options)
-    do {
-      _ = try generator.generateXcodeProjectInFolder(outputFolderURL)
-      mockLocalizedMessageLogger.assertNoErrors()
-      mockLocalizedMessageLogger.assertNoWarnings()
-
-      let cacheReaderURL = mockFileManager.homeDirectoryForCurrentUser.appendingPathComponent(
-        "Library/Application Support/Tulsi/Scripts/bazel_cache_reader", isDirectory: false)
-      XCTAssert(mockFileManager.copyOperations.keys.contains(cacheReaderURL.path))
     } catch let e {
       XCTFail("Unexpected exception \(e)")
     }
@@ -393,7 +372,8 @@ class XcodeProjectGeneratorTests: XCTestCase {
       extensionType: extensionType)
   }
 
-  private func prepareGenerator(_ ruleEntries: [BuildLabel: RuleEntry], options: TulsiOptionSet = TulsiOptionSet()) {
+  private func prepareGenerator(_ ruleEntries: [BuildLabel: RuleEntry]) {
+    let options = TulsiOptionSet()
     // To avoid creating ~/Library folders and changing UserDefaults during CI testing.
     config = TulsiGeneratorConfig(
       projectName: XcodeProjectGeneratorTests.projectName,
@@ -405,14 +385,8 @@ class XcodeProjectGeneratorTests: XCTestCase {
     let projectURL = URL(fileURLWithPath: xcodeProjectPath, isDirectory: true)
     mockFileManager.allowedDirectoryCreates.insert(projectURL.path)
 
-    let tulsiExecRoot = projectURL.appendingPathComponent(PBXTargetGenerator.TulsiExecutionRootSymlinkPath)
-    mockFileManager.allowedDirectoryCreates.insert(tulsiExecRoot.path)
-
-    let tulsiLegacyExecRoot = projectURL.appendingPathComponent(PBXTargetGenerator.TulsiExecutionRootSymlinkLegacyPath)
-    mockFileManager.allowedDirectoryCreates.insert(tulsiLegacyExecRoot.path)
-
-    let tulsiOutputBase = projectURL.appendingPathComponent(PBXTargetGenerator.TulsiOutputBaseSymlinkPath)
-    mockFileManager.allowedDirectoryCreates.insert(tulsiOutputBase.path)
+    let tulsiworkspace = projectURL.appendingPathComponent("tulsi-workspace")
+    mockFileManager.allowedDirectoryCreates.insert(tulsiworkspace.path)
 
     let bazelCacheReaderURL = mockFileManager.homeDirectoryForCurrentUser.appendingPathComponent(
       "Library/Application Support/Tulsi/Scripts", isDirectory: true)
@@ -462,7 +436,7 @@ class XcodeProjectGeneratorTests: XCTestCase {
       tulsiVersion: testTulsiVersion,
       fileManager: mockFileManager,
       pbxTargetGeneratorType: MockPBXTargetGenerator.self)
-    generator.redactSymlinksToBazelOutput = true
+    generator.redactWorkspaceSymlink = true
     generator.suppressModifyingUserDefaults = true
     generator.suppressGeneratingBuildSettings = true
     generator.writeDataHandler = { (url, _) in
@@ -603,7 +577,8 @@ final class MockPBXTargetGenerator: PBXTargetGeneratorProtocol {
     options: TulsiOptionSet,
     localizedMessageLogger: LocalizedMessageLogger,
     workspaceRootURL: URL,
-    suppressCompilerDefines: Bool
+    suppressCompilerDefines: Bool,
+    redactWorkspaceSymlink: Bool
   ) {
     self.project = project
   }
@@ -627,6 +602,14 @@ final class MockPBXTargetGenerator: PBXTargetGeneratorProtocol {
     _ scriptPath: String, workingDirectory: String,
     startupOptions: [String]
   ) {
+  }
+  
+  func generateSwiftLintTarget(_ scriptPath: String, workingDirectory: String,
+                               startupOptions: [String]) {
+  }
+  
+  func generatePMD_CPDTarget(_ scriptPath: String, workingDirectory: String,
+                               startupOptions: [String]) {
   }
 
   func generateTopLevelBuildConfigurations(_ buildSettingOverrides: [String: String]) {

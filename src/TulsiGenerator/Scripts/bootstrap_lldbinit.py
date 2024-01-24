@@ -15,9 +15,9 @@
 
 """Bootstraps the presence and setup of ~/.lldbinit-tulsiproj."""
 
-import io
 import os
 import shutil
+from io import StringIO
 import sys
 
 
@@ -73,7 +73,7 @@ class BootstrapLLDBInit(object):
 
         # For each line found matching source_string, increment the iterator
         # and do not append that line to the list.
-        if source_idx <= source_last and source_lines[source_idx] in line:
+        if source_lines[source_idx] in line:
 
           # If we intend to write the source string and all lines were found,
           # return an error code with empty content.
@@ -83,6 +83,7 @@ class BootstrapLLDBInit(object):
           # Increment for each matching line found.
           source_idx += 1
           ignoring = True
+          continue
 
         if ignoring:
 
@@ -139,7 +140,7 @@ class BootstrapLLDBInit(object):
                                                         source_string,
                                                         add_source_string)
 
-    out = io.StringIO()
+    out = StringIO()
 
     if add_source_string:
       if return_code == CHANGE_NEEDED:

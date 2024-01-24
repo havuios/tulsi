@@ -32,10 +32,11 @@ def _APFSCheck(volume_path):
     True if the volume has been formatted as APFS.
     False if not.
   """
-  output = subprocess.check_output(['diskutil', 'info', volume_path],
-                                   encoding='utf-8')
+  output = subprocess.check_output(['diskutil',
+                                    'info',
+                                    volume_path])
   # Match the output's "Type (Bundle): ..." entry to determine if apfs.
-  target_fs = re.search(r'(?:Type \(Bundle\):) +([^ ]+)', output)
+  target_fs = re.search(r'(?:Type \(Bundle\):) +([^ ]+)', output.decode())
   if not target_fs:
     return False
   filesystem = target_fs.group(1)

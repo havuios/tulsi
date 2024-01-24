@@ -114,9 +114,8 @@ final class XCBuildConfiguration: PBXObjectProtocol {
 class PBXReference: PBXObjectProtocol {
   var globalID: String = ""
   let name: String
-  // be careful setting these; they're cached in PBXGroup
-  fileprivate(set) var path: String?
-  fileprivate(set) var sourceTree: SourceTree
+  var path: String?
+  let sourceTree: SourceTree
 
   var isa: String {
     assertionFailure("PBXReference must be subclassed")
@@ -147,7 +146,7 @@ class PBXReference: PBXObjectProtocol {
   fileprivate weak var _parent: PBXReference?
 
   init(name: String, path: String?, sourceTree: SourceTree, parent: PBXReference? = nil) {
-    self.name = name
+    self.name = name;
     self.path = path
     self.sourceTree = sourceTree
     self._parent = parent
@@ -388,22 +387,18 @@ class PBXGroup: PBXReference, Hashable {
         child.updatePathForChild(grandchild, currentPath: childPath)
       }
     } else if let child = child as? PBXFileReference {
-      updatePathForChildFile(child, toPath: childPath)
-    }
-  }
+      // Remove old source path reference. All PBXFileReferences should have valid paths as
+      // non-main/external groups no longer have any paths, meaning a PBXFileReference without a
+      // path shouldn't exist as it doesn't point to anything.
+      var sourceTreePath = SourceTreePath(sourceTree: child.sourceTree, path: child.path!)
+      fileReferencesBySourceTreePath.removeValue(forKey: sourceTreePath)
 
-  func updatePathForChildFile(
-    _ child: PBXFileReference,
-    toPath: String,
-    sourceTree: SourceTree? = nil) { // Source tree defaults to staying the same
-    // Updates internal index to match
-    fileReferencesBySourceTreePath.removeValue(
-      forKey: SourceTreePath(sourceTree: child.sourceTree, path: child.path!))
-    let newSourceTreePath =
-      SourceTreePath(sourceTree: sourceTree ?? child.sourceTree, path: toPath)
-    child.path = newSourceTreePath.path
-    child.sourceTree = newSourceTreePath.sourceTree
-    fileReferencesBySourceTreePath[newSourceTreePath] = child
+      // Add in new source path reference.
+      sourceTreePath = SourceTreePath(sourceTree: child.sourceTree, path: childPath)
+      fileReferencesBySourceTreePath[sourceTreePath] = child
+
+      child.path = childPath
+    }
   }
 
   /// Takes ownership of the children of the given group. Note that this leaves the "other" group in
@@ -624,6 +619,7 @@ final class PBXShellScriptBuildPhase: PBXBuildPhase {
   let shellPath: String
   let shellScript: String
   var showEnvVarsInLog = false
+  var alwaysOutOfDate: Bool
 
   override var isa: String {
     return "PBXShellScriptBuildPhase"
@@ -641,11 +637,13 @@ final class PBXShellScriptBuildPhase: PBXBuildPhase {
        inputPaths: [String] = [String](),
        outputPaths: [String] = [String](),
        buildActionMask: Int = 0,
-       runOnlyForDeploymentPostprocessing: Bool = false) {
+       runOnlyForDeploymentPostprocessing: Bool = false,
+       alwaysOutOfDate: Bool = false) {
     self.shellScript = shellScript
     self.shellPath = shellPath
     self.inputPaths = inputPaths
     self.outputPaths = outputPaths
+    self.alwaysOutOfDate = alwaysOutOfDate
     self._hashValue = shellPath.hashValue &+ shellScript.hashValue
 
     super.init(buildActionMask: buildActionMask,
@@ -659,6 +657,7 @@ final class PBXShellScriptBuildPhase: PBXBuildPhase {
     try serializer.addField("shellPath", shellPath)
     try serializer.addField("shellScript", shellScript)
     try serializer.addField("showEnvVarsInLog", showEnvVarsInLog)
+    try serializer.addField("alwaysOutOfDate", 1)
   }
 }
 
@@ -826,7 +825,7 @@ class PBXTarget: PBXObjectProtocol, Hashable {
     func productName(_ name: String) -> String {
       switch self {
         case .StaticLibrary:
-          return "lib\(name).a"
+          return "lib\(name).lo"
 
         case .DynamicLibrary:
           return "lib\(name).dylib"
@@ -1326,8 +1325,8 @@ final class PBXProject: PBXObjectProtocol {
     try serializer.addField("attributes", attributes)
     try serializer.addField("buildConfigurationList", buildConfigurationList)
     try serializer.addField("compatibilityVersion", compatibilityVersion)
-    try serializer.addField("mainGroup", mainGroup)
-    try serializer.addField("targets", targetByName.values.sorted(by: {$0.name < $1.name}))
+    try serializer.addField("mainGroup", mainGroup);
+    try serializer.addField("targets", targetByName.values.sorted(by: {$0.name < $1.name}));
 
     // Hardcoded defaults to match Xcode behavior.
     try serializer.addField("developmentRegion", "English")
@@ -1350,22 +1349,23 @@ final class PBXProject: PBXObjectProtocol {
       // reference by Xcode (e.g., .xcassets bundles) instead of as a PBXGroup.
       let currentComponent = components[i]
 
-      // Support per-locale files (lprojs), which are represented in PBXVariantGroups.
-      if currentComponent.pbPathExtension == "lproj" {
-        let lprojName = currentComponent.replacingOccurrences(of: ".lproj", with: "")
-        let name = components[i + 1] // Assume it's the next (and last).
+      // Xcode 11 has an issue with this, disable for now
+      // // Support per-locale files (lprojs), which are represented in PBXVariantGroups.
+      // if currentComponent.pbPathExtension == "lproj" {
+      //   let lprojName = currentComponent.replacingOccurrences(of: ".lproj", with: "")
+      //   let name = components[i + 1] // Assume it's the next (and last).
 
-        let variantGroup = group.getOrCreateChildVariantGroupByName(name)
-        accessedGroups.insert(variantGroup)
+      //   let variantGroup = group.getOrCreateChildVariantGroupByName(name)
+      //   accessedGroups.insert(variantGroup)
 
-        let fileRef = variantGroup.getOrCreateFileReferenceBySourceTree(.Group,
-                                                                        path: path,
-                                                                        name: lprojName)
-        if let ext = name.pbPathExtension, let uti = DirExtensionToUTI[ext] {
-          fileRef.fileTypeOverride = uti
-        }
-        return (accessedGroups, fileRef)
-      }
+      //   let fileRef = variantGroup.getOrCreateFileReferenceBySourceTree(.Group,
+      //                                                                   path: path,
+      //                                                                   name: lprojName)
+      //   if let ext = name.pbPathExtension, let uti = DirExtensionToUTI[ext] {
+      //     fileRef.fileTypeOverride = uti
+      //   }
+      //   return (accessedGroups, fileRef)
+      // }
 
       // This will naively create a bundle grouping rather than including the per-locale strings.
       if let ext = currentComponent.pbPathExtension, let uti = DirExtensionToUTI[ext] {

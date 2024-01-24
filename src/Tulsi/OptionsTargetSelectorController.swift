@@ -28,7 +28,7 @@ class OptionsTargetNode: UISelectableOutlineViewNode {
 }
 
 
-protocol OptionsTargetSelectorControllerDelegate: AnyObject {
+protocol OptionsTargetSelectorControllerDelegate: class {
   /// Invoked when the target selection has been changed.
   func didSelectOptionsTargetNode(_ node: OptionsTargetNode)
 }

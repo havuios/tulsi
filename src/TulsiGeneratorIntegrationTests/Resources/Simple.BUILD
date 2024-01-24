@@ -17,7 +17,6 @@
 load(
     "@build_bazel_rules_apple//apple:ios.bzl",
     "ios_application",
-    "ios_build_test",
     "ios_unit_test",
 )
 
@@ -142,14 +141,6 @@ objc_library(
     ],
 )
 
-ios_build_test(
-    name = "TestLibraryBuildTest",
-    minimum_os_version = "10.0",
-    targets = [
-        ":TestLibrary",
-    ],
-)
-
 ios_unit_test(
     name = "XCTest",
     minimum_os_version = "10.0",
@@ -158,10 +149,4 @@ ios_unit_test(
     deps = [
         ":TestLibrary",
     ],
-)
-
-# Contains all tests, but Tulsi will drop the `ios_build_test`
-# since it's unsupported.
-test_suite(
-    name = "AllTests",
 )

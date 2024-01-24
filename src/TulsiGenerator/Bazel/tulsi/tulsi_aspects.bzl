@@ -149,9 +149,7 @@ Filtering information for this target. Only for test target, otherwise is None.
 )
 
 TulsiOutputAspectInfo = provider(
-    doc = """Provides information about an Apple target's outputs.""",
     fields = {
-        "transitive_explicit_modules": "Depset of all explicit modules built by this target.",
         "transitive_generated_files": "Depset of tulsi generated files.",
         "transitive_embedded_bundles": "Depset of all bundles embedded into this target.",
     },
@@ -180,7 +178,7 @@ def _convert_outpath_to_symlink_path(path):
     and the bazel_build.py script will link the artifacts into the correct
     location under it.
 
-    Tulsi root is located at WORKSPACE/bazel-exec-root-link/bazel-tulsi-includes/x/x/.
+    Tulsi root is located at WORKSPACE/bazel-exec-root-link/bazel-tulsi-includes/bazel/codegen/.
     The two "x" directories are stubs to match the number of path components, so
     that relative paths work with the new location. Some Bazel outputs, like
     module maps, use relative paths to reference other files in the build.
@@ -194,7 +192,7 @@ def _convert_outpath_to_symlink_path(path):
     In short, this method will transform
       bazel-out/ios-x86_64-min7.0/genfiles/foo
     to
-      bazel-tulsi-includes/x/x/foo
+      bazel-tulsi-includes/bazel/codegen/foo
 
     This is currently enabled for everything although it will only affect
     generated files.
@@ -209,13 +207,13 @@ def _convert_outpath_to_symlink_path(path):
     # Transform paths of the form:
     #   bazel-[whatever]/[platform-config]/symlink[/.*]
     # to:
-    #   bazel-tulsi-includes/x/x/symlink[/.*]
+    #   bazel-tulsi-includes/bazel/codegen/symlink[/.*]
     first_dash = path.find("-")
     components = path.split("/")
     if (len(components) > 2 and
         first_dash >= 0 and
         first_dash < len(components[0])):
-        return "bazel-tulsi-includes/x/x/" + "/".join(components[3:])
+        return "bazel-tulsi-includes/bazel/codegen/" + "/".join(components[3:])
     return path
 
 def _is_file_a_directory(f):
@@ -651,31 +649,13 @@ def _collect_swift_modules(target):
         if module.swift
     ]
 
-def _collect_clang_modules(target):
-    """Returns a struct with lists of Clang pcms and module maps found on the given target."""
-    if not _is_swift_target(target):
-        return struct(module_maps = [], precompiled_modules = [])
-
-    module_maps = []
-    precompiled_modules = []
-
-    for module in target[SwiftInfo].transitive_modules.to_list():
-        if module.clang == None:
-            continue
-
-        # Collect precompiled modules
-        if module.clang.precompiled_module:
-            precompiled_module = struct(
-                module = module.clang.precompiled_module,
-                name = module.name,
-            )
-            precompiled_modules.append(precompiled_module)
-
-        # Collect module maps
-        if type(module.clang.module_map) == "File":
-            module_maps.append(module.clang.module_map)
-
-    return struct(module_maps = module_maps, precompiled_modules = precompiled_modules)
+def _collect_module_maps(target):
+    """Returns a list of Clang module maps found on the given target."""
+    return [
+        module.clang.module_map
+        for module in target[SwiftInfo].transitive_modules.to_list()
+        if module.clang and type(module.clang.module_map) == "File"
+    ]
 
 def _collect_objc_strict_includes(target, rule_attr):
     """Returns a depset of strict includes found on the deps of given target."""
@@ -773,9 +753,8 @@ def _tulsi_sources_aspect(target, ctx):
     is_swift_target = _is_swift_target(target)
 
     if is_swift_target:
-        clang_modules = _collect_clang_modules(target)
         swift_transitive_modules = depset([_file_metadata(f) for f in _collect_swift_modules(target)])
-        objc_module_maps = depset([_file_metadata(f) for f in clang_modules.module_maps])
+        objc_module_maps = depset([_file_metadata(f) for f in _collect_module_maps(target)])
     else:
         swift_transitive_modules = depset()
         objc_module_maps = depset()
@@ -1113,16 +1092,12 @@ def _tulsi_outputs_aspect(target, ctx):
     # A list of bundle infos corresponding to the dependencies of this target.
     direct_embedded_bundles = []
 
-    # A list of all explicit modules that have been built from this targets dependencies.
-    transitive_explicit_modules = []
-
     for attr_name in _TULSI_COMPILE_DEPS:
         deps = _collect_dependencies(rule_attr, attr_name)
         for dep in deps:
             if TulsiOutputAspectInfo in dep:
                 transitive_generated_files.append(dep[TulsiOutputAspectInfo].transitive_generated_files)
                 transitive_embedded_bundles.append(dep[TulsiOutputAspectInfo].transitive_embedded_bundles)
-                transitive_explicit_modules.append(dep[TulsiOutputAspectInfo].transitive_explicit_modules)
 
             # Retrieve the bundle info for embeddable attributes.
             if attr_name not in _TULSI_NON_EMBEDDEDABLE_ATTRS:
@@ -1172,7 +1147,7 @@ def _tulsi_outputs_aspect(target, ctx):
         artifacts = [
             x
             for x in target.files.to_list()
-            if x.extension == "a"
+            if (x.extension == "a" or x.extension == "lo")
         ]
         if len(artifacts) > 0:
             artifact = artifacts[0].path
@@ -1187,11 +1162,10 @@ def _tulsi_outputs_aspect(target, ctx):
         if cc_info:
             all_files_depsets.append(cc_info.compilation_context.headers)
 
-    clang_modules = _collect_clang_modules(target)
     if _is_swift_target(target):
         all_files_depsets.append(_collect_swift_header(target))
         all_files_depsets.append(depset(_collect_swift_modules(target)))
-        all_files_depsets.append(depset(clang_modules.module_maps))
+        all_files_depsets.append(depset(_collect_module_maps(target)))
 
     source_files = [
         x
@@ -1213,11 +1187,6 @@ def _tulsi_outputs_aspect(target, ctx):
         transitive = transitive_generated_files,
     )
 
-    explicit_modules = depset([
-        struct(name = m.name, path = m.module.path)
-        for m in clang_modules.precompiled_modules
-    ], transitive = transitive_explicit_modules)
-
     has_dsym = _has_dsym(target)
 
     info = _struct_omitting_none(
@@ -1228,7 +1197,6 @@ def _tulsi_outputs_aspect(target, ctx):
         bundle_name = bundle_name,
         embedded_bundles = embedded_bundles.to_list(),
         has_dsym = has_dsym,
-        explicit_modules = explicit_modules.to_list(),
     )
 
     output = ctx.actions.declare_file(target.label.name + ".tulsiouts")
@@ -1237,7 +1205,6 @@ def _tulsi_outputs_aspect(target, ctx):
     return [
         OutputGroupInfo(tulsi_outputs = [output]),
         TulsiOutputAspectInfo(
-            transitive_explicit_modules = explicit_modules,
             transitive_generated_files = generated_files,
             transitive_embedded_bundles = embedded_bundles,
         ),
@@ -1255,6 +1222,7 @@ tulsi_sources_aspect = aspect(
         )),
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
+    incompatible_use_toolchain_transition = True,
     fragments = [
         "apple",
         "cpp",

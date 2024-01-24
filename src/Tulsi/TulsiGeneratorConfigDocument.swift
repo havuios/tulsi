@@ -16,7 +16,7 @@ import Cocoa
 import TulsiGenerator
 
 
-protocol TulsiGeneratorConfigDocumentDelegate: AnyObject {
+protocol TulsiGeneratorConfigDocumentDelegate: class {
   /// Called when the TulsiGeneratorConfigDocument is saved successfully with a new name.
   func didNameTulsiGeneratorConfigDocument(_ document: TulsiGeneratorConfigDocument, configName: String)
 

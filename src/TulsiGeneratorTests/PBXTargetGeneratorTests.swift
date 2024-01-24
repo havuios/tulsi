@@ -190,6 +190,40 @@ class PBXTargetGeneratorTestsWithFiles: XCTestCase {
     let expectedScriptArguments = "\"\(bazelPath)\" \"bazel-bin\""
     XCTAssertEqual(target.buildArgumentsString, expectedScriptArguments)
   }
+  
+  func testGenerateSwiftLintTarget() {
+    let scriptPath = "scriptPath"
+    let workingDirectory = "/directory/of/work"
+    targetGenerator.generateSwiftLintTarget(scriptPath, workingDirectory: workingDirectory)
+    let targets = project.targetByName
+    XCTAssertEqual(targets.count, 1)
+
+    XCTAssertNotNil(targets[PBXTargetGenerator.SwiftLintTarget] as? PBXLegacyTarget)
+    let target = targets[PBXTargetGenerator.SwiftLintTarget] as! PBXLegacyTarget
+
+    XCTAssertEqual(target.buildToolPath, scriptPath)
+
+    // The script should launch the test scriptPath with bazelPath's path as the only argument.
+    let expectedScriptArguments = "\"\(bazelPath)\" \"bazel-bin\""
+    XCTAssertEqual(target.buildArgumentsString, expectedScriptArguments)
+  }
+  
+  func testGeneratePMD_CPDTarget() {
+    let scriptPath = "scriptPath"
+    let workingDirectory = "/directory/of/work"
+    targetGenerator.generatePMD_CPDTarget(scriptPath, workingDirectory: workingDirectory)
+    let targets = project.targetByName
+    XCTAssertEqual(targets.count, 1)
+
+    XCTAssertNotNil(targets[PBXTargetGenerator.PMD_CPDTarget] as? PBXLegacyTarget)
+    let target = targets[PBXTargetGenerator.PMD_CPDTarget] as! PBXLegacyTarget
+
+    XCTAssertEqual(target.buildToolPath, scriptPath)
+
+    // The script should launch the test scriptPath with bazelPath's path as the only argument.
+    let expectedScriptArguments = "\"\(bazelPath)\" \"bazel-bin\""
+    XCTAssertEqual(target.buildArgumentsString, expectedScriptArguments)
+  }
 
   func testGenerateBazelCleanTargetAppliesToRulesAddedBeforeAndAfter() {
     do {
@@ -263,15 +297,13 @@ class PBXTargetGeneratorTestsWithFiles: XCTestCase {
       "GCC_WARN_UNINITIALIZED_AUTOS": "YES",
       "GCC_WARN_UNUSED_FUNCTION": "YES",
       "GCC_WARN_UNUSED_VARIABLE": "YES",
-      "HEADER_SEARCH_PATHS": "$(TULSI_EXECUTION_ROOT) $(TULSI_WR)/bazel-bin $(TULSI_WR)/bazel-genfiles "
-        + "$(TULSI_EXECUTION_ROOT)/\(PBXTargetGenerator.tulsiIncludesPath)",
+      "HEADER_SEARCH_PATHS": "$(TULSI_BWRS) $(TULSI_WR)/bazel-bin $(TULSI_WR)/bazel-genfiles "
+        + "$(TULSI_BWRS)/\(PBXTargetGenerator.tulsiIncludesPath)",
       "ONLY_ACTIVE_ARCH": "YES",
       "PYTHONIOENCODING": "utf8",
       "TULSI_VERSION": testTulsiVersion,
-      PBXTargetGenerator.WorkspaceRootVarName: "$(SRCROOT)",
-      PBXTargetGenerator.BazelExecutionRootSymlinkVarName: "$(PROJECT_FILE_PATH)/" + PBXTargetGenerator.TulsiExecutionRootSymlinkPath,
-      PBXTargetGenerator.BazelExecutionRootSymlinkLegacyVarName: "$(PROJECT_FILE_PATH)/" + PBXTargetGenerator.TulsiExecutionRootSymlinkPath,
-      PBXTargetGenerator.BazelOutputBaseSymlinkVarName: "$(PROJECT_FILE_PATH)/" + PBXTargetGenerator.TulsiOutputBaseSymlinkPath,
+      "TULSI_WR": "$(SRCROOT)",
+      "TULSI_BWRS": "${TULSI_WR}/tulsi-workspace",
     ]
 
     XCTAssertNotNil(topLevelConfigs["Debug"])
@@ -321,16 +353,14 @@ class PBXTargetGeneratorTestsWithFiles: XCTestCase {
       "GCC_WARN_UNINITIALIZED_AUTOS": "YES",
       "GCC_WARN_UNUSED_FUNCTION": "YES",
       "GCC_WARN_UNUSED_VARIABLE": "YES",
-      "HEADER_SEARCH_PATHS": "$(TULSI_EXECUTION_ROOT) $(TULSI_WR)/bazel-bin $(TULSI_WR)/bazel-genfiles "
-        + "$(TULSI_EXECUTION_ROOT)/\(PBXTargetGenerator.tulsiIncludesPath)",
+      "HEADER_SEARCH_PATHS": "$(TULSI_BWRS) $(TULSI_WR)/bazel-bin $(TULSI_WR)/bazel-genfiles "
+        + "$(TULSI_BWRS)/\(PBXTargetGenerator.tulsiIncludesPath)",
       "SDKROOT": projectSDKROOT,
       "ONLY_ACTIVE_ARCH": "YES",
       "PYTHONIOENCODING": "utf8",
       "TULSI_VERSION": testTulsiVersion,
-      PBXTargetGenerator.WorkspaceRootVarName: "$(SRCROOT)",
-      PBXTargetGenerator.BazelExecutionRootSymlinkVarName: "$(PROJECT_FILE_PATH)/" + PBXTargetGenerator.TulsiExecutionRootSymlinkPath,
-      PBXTargetGenerator.BazelExecutionRootSymlinkLegacyVarName: "$(PROJECT_FILE_PATH)/" + PBXTargetGenerator.TulsiExecutionRootSymlinkPath,
-      PBXTargetGenerator.BazelOutputBaseSymlinkVarName: "$(PROJECT_FILE_PATH)/" + PBXTargetGenerator.TulsiOutputBaseSymlinkPath,
+      "TULSI_WR": "$(SRCROOT)",
+      "TULSI_BWRS": "${TULSI_WR}/tulsi-workspace",
     ]
 
     XCTAssertNotNil(topLevelConfigs["Debug"])
@@ -2591,7 +2621,7 @@ class PBXTargetGeneratorTestsWithFiles: XCTestCase {
     validateIndexerTarget(
       indexerTargetName,
       sourceFileNames: sourceFileNames,
-      bridgingHeader: "$(TULSI_EXECUTION_ROOT)/\(bridgingHeaderFilePath)",
+      bridgingHeader: "$(TULSI_BWRS)/\(bridgingHeaderFilePath)",
       inTargets: targets)
   }
 
@@ -3496,7 +3526,7 @@ class PBXTargetGeneratorTestsWithFiles: XCTestCase {
       expectedBuildSettings["USER_HEADER_SEARCH_PATHS"] = "$(TULSI_WR)"
     }
     if let pchFile = pchFile {
-      expectedBuildSettings["GCC_PREFIX_HEADER"] = "$(TULSI_EXECUTION_ROOT)/\(pchFile.path!)"
+      expectedBuildSettings["GCC_PREFIX_HEADER"] = "$(TULSI_BWRS)/\(pchFile.path!)"
     }
     if let bridgingHeader = bridgingHeader {
       expectedBuildSettings["SWIFT_OBJC_BRIDGING_HEADER"] = bridgingHeader

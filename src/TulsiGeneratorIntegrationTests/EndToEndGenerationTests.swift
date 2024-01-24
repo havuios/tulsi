@@ -33,15 +33,16 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
 
     let appLabel = BuildLabel("//\(testDir):Application")
     let targetLabel = BuildLabel("//\(testDir):TargetApplication")
+    let hostLabels = Set<BuildLabel>([appLabel])
     let buildTargets = [RuleInfo(label: appLabel,
                                  type: "ios_application",
                                  linkedTargetLabels: []),
                         RuleInfo(label: targetLabel,
                                  type: "ios_application",
                                  linkedTargetLabels: []),
-                        RuleInfo(label: BuildLabel("//\(testDir):AllTests"),
-                                 type: "test_suite",
-                                 linkedTargetLabels: [])]
+                        RuleInfo(label: BuildLabel("//\(testDir):XCTest"),
+                                 type: "ios_unit_test",
+                                 linkedTargetLabels: hostLabels)]
     let additionalFilePaths = ["\(testDir)/BUILD"]
 
     let projectName = "SimpleProject"
@@ -79,7 +80,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
                                               options: options)
 
     let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_MultiExtensionProject() throws {
@@ -112,7 +113,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
                                               outputDir: "tulsi_e2e_output")
 
     let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_AppClipProject() throws {
@@ -137,7 +138,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
     try validateBuildCommandForProject(projectURL, targets: [appLabel.value])
 
     let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_BrokenSourceBUILD() {
@@ -231,7 +232,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
     try validateBuildCommandForProject(projectURL, options: projectOptions, targets: [appLabel.value])
 
     let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_SwiftProject() throws {
@@ -256,7 +257,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
     try validateBuildCommandForProject(projectURL, swift: true, targets: [appLabel.value])
 
     let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_watchProject() throws {
@@ -281,7 +282,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
     try validateBuildCommandForProject(projectURL, targets: [appLabel.value])
 
     let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_tvOSProject() throws {
@@ -295,8 +296,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
     ]
     let additionalFilePaths = ["\(testDir)/BUILD"]
 
-    let projectName = "SkylarkBundlingProject"
-    let projectURL = try generateProjectNamed(projectName,
+    let projectURL = try generateProjectNamed("SkylarkBundlingProject",
                                               buildTargets: buildTargets,
                                               pathFilters: ["\(testDir)/...",
                                                             "bazel-bin/\(testDir)/...",
@@ -306,8 +306,8 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
 
     try validateBuildCommandForProject(projectURL, targets: [appLabel.value])
 
-    let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    let diffLines = diffProjectAt(projectURL, againstGoldenProject: "SkylarkBundlingProject")
+    validateDiff(diffLines)
   }
 
   func test_macProject() throws {
@@ -336,7 +336,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
     try validateBuildCommandForProject(projectURL, targets: [appLabel.value])
 
     let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_macTestsProject() throws {
@@ -371,7 +371,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
     try validateBuildCommandForProject(projectURL, targets: [appLabel.value])
 
     let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_simpleCCProject() throws {
@@ -393,7 +393,7 @@ class EndToEndGenerationTests: EndToEndIntegrationTestCase {
     try validateBuildCommandForProject(projectURL, targets: [appLabel.value])
 
     let diffLines = diffProjectAt(projectURL, againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 }
 
@@ -437,7 +437,7 @@ class TestSuiteEndToEndGenerationTests: EndToEndIntegrationTestCase {
 
     let diffLines = diffProjectAt(projectURL,
                                   againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_TestSuiteLocalTaggedTestsProject() throws {
@@ -458,7 +458,7 @@ class TestSuiteEndToEndGenerationTests: EndToEndIntegrationTestCase {
 
     let diffLines = diffProjectAt(projectURL,
                                   againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 
   func test_TestSuiteRecursiveTestSuiteProject() throws {
@@ -479,6 +479,6 @@ class TestSuiteEndToEndGenerationTests: EndToEndIntegrationTestCase {
 
     let diffLines = diffProjectAt(projectURL,
                                   againstGoldenProject: projectName)
-    validateDiff(diffLines, for: projectName)
+    validateDiff(diffLines)
   }
 }
