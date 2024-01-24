@@ -257,7 +257,6 @@
 /* Begin PBXShellScriptBuildPhase section */
 		978262ABB3B9DBA500000000 /* build //TestSuite:TestApplication */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 0;
 			files = (
 			);
@@ -289,7 +288,6 @@
 		};
 		978262ABFFED74C200000000 /* build //TestSuite:TestSuiteXCTest */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 0;
 			files = (
 			);

@@ -1856,8 +1856,7 @@ done
       shellScript: shellScript,
       shellPath: "/bin/bash",
       name: "build \(entry.label)",
-      inputPaths: inputPaths,
-      alwaysOutOfDate: true
+      inputPaths: inputPaths
     )
     buildPhase.showEnvVarsInLog = true
     buildPhase.mnemonic = "BazelBuild"
@@ -1908,8 +1907,7 @@ done
     let buildPhase = PBXShellScriptBuildPhase(
       shellScript: shellScript,
       shellPath: "/bin/bash",
-      name: "Resign test artifacts",
-      alwaysOutOfDate: true
+      name: "Resign test artifacts"
     )
     buildPhase.showEnvVarsInLog = true
     buildPhase.mnemonic = "Resigner"

@@ -351,7 +351,6 @@
 /* Begin PBXShellScriptBuildPhase section */
 		978262AB018163CC00000000 /* build //TestSuite/Three:tagged_xctest_2 */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 0;
 			files = (
 			);
@@ -383,7 +382,6 @@
 		};
 		978262AB8AE00F0800000000 /* build //TestSuite/Three:tagged_xctest_1 */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 0;
 			files = (
 			);
@@ -415,7 +413,6 @@
 		};
 		978262ABB3B9DBA500000000 /* build //TestSuite:TestApplication */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 0;
 			files = (
 			);
@@ -447,7 +444,6 @@
 		};
 		978262ABFFED74C200000000 /* build //TestSuite:TestSuiteXCTest */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 0;
 			files = (
 			);
